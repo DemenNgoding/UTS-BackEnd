@@ -10,8 +10,121 @@ const { errorResponder, errorTypes } = require('../../../core/errors');
  */
 async function getUsers(request, response, next) {
   try {
-    const users = await usersService.getUsers();
-    return response.status(200).json(users);
+    // mengambil data user dari database
+    let users = await usersService.getUsers();
+
+    // mengambil parameter halaman ke berapa dan berapa banyak data yang ingin ditampilkan di setiap halaman
+    // variabel page_number dan page_size juga memiliki nilai default (page_number = 1, page_size = 5) dengan menampilkan halaman pertama dan batasan perhalaman 5 jika hanya memasukan link seperti ini (get) http://localhost:3000/api/users bukan seperti ini http://localhost:3000/api/users?page_number=1&page_size=3
+    const {
+      page_number = 1,
+      page_size = 5,
+      search = '',
+      sort = '',
+    } = request.query;
+
+    // Filter berdasarkan kriteria pencarian jika diberikan
+    if (search) {
+      const [criteria, value] = search.split(':');
+      if (criteria === 'email') {
+        users = users.filter((user) => user.email.includes(value));
+      }
+    }
+
+    // Mengurutkan hasil berdasarkan kriteria pengurutan jika diberikan
+    if (sort) {
+      const [sortBy, sortOrder] = sort.split(':');
+      users.sort((a, b) => {
+        if (sortOrder === 'asc') {
+          return a[sortBy].localeCompare(b[sortBy]);
+        } else {
+          return b[sortBy].localeCompare(a[sortBy]);
+        }
+      });
+    }
+
+    // // Filter berdasarkan email jika search mengandung 'email:'
+    // let filteredUsers = users;
+    // if (search.startsWith('email:')) {
+    //   const searchValue = search.substring(6); // Menghapus 'email:' dari string pencarian
+    //   filteredUsers = users.filter((user) => user.email.includes(searchValue));
+    // }
+
+    // // Mengurutkan hasil berdasarkan email
+    // filteredUsers.sort((a, b) => {
+    //   if (sort === 'desc') {
+    //     return b.email.localeCompare(a.email); // Descending
+    //   } else {
+    //     return a.email.localeCompare(b.email); // Ascending (default)
+    //   }
+    // });
+
+    // // membuat fungsi pencarian berdasarkan kata kunci
+    // const cariUser = {
+    //   email: (users, value) =>
+    //     users.filter((user) => user.email.includes(value)),
+    //   name: (users, value) => users.filter((user) => user.name.includes(value)),
+    //   // Tambahkan fungsi pencarian baru di sini jika diperlukan
+    // };
+
+    // // Lakukan pencarian jika ada parameter pencarian
+    // if (search) {
+    //   const [kataKunci, nilai] = search.split(':');
+    //   // Periksa apakah fungsi pencarian sesuai dengan kata kunci yang diberikan
+    //   if (cariUser[kataKunci]) {
+    //     filteredUsers = cariUser[kataKunci](users, nilai);
+    //   }
+    // }
+
+    // // memetakan parameter pengurutan ke fungsi pengurutan yang sesuai
+    // const mengurutkan = {
+    //   asc: (a, b, sortBy) => a[sortBy].localeCompare(b[sortBy]),
+    //   desc: (a, b, sortBy) => b[sortBy].localeCompare(a[sortBy]),
+    // };
+
+    // // Menerapkan pengurutan jika parameter pengurutan disediakan
+    // if (sort) {
+    //   const [sortBy, sortOrder] = sort.split(':');
+    //   // Periksa apakah ada fungsi pengurutan yang sesuai dengan sortOrder yang diberikan
+    //   if (mengurutkan[sortOrder]) {
+    //     filteredUsers.sort((a, b) => mengurutkan[sortOrder](a, b, sortBy));
+    //   }
+    // }
+
+    // mengubah tipe data page_number & page_size dari string menjadi integer
+    const halaman = parseInt(page_number);
+    const batasanPerHalaman = parseInt(page_size);
+
+    const totalPengguna = users.length; // variable untuk mengetahui berapa banyak user yang ada di database
+    const totalHalaman = Math.ceil(totalPengguna / batasanPerHalaman);
+
+    // throw error jika halaman yang di input melebihi return dari total halaman
+    if (halaman < 1 || halaman > totalHalaman) {
+      return response.status(404).json({
+        message: `Anda melebihi jumlah halaman yang tersedia, jumlah halaman yang tesedia adalah ${totalHalaman}`,
+      });
+    }
+
+    const awal = (halaman - 1) * batasanPerHalaman; // mendapatkah index pertama dari data pengguna
+    const akhir = Math.min(awal + batasanPerHalaman, totalPengguna); // mendapatkan index terakhir dari data pengguna dan memastikan bahwa indeks akhir tidak melebihi jumlah pengguna yang ada di database
+
+    // mengambil data user berdasarkan halaman dan batasan user perhalaman yang di input
+    const listUser = users.slice(awal, akhir);
+
+    // menghitung jumlah user yang akan ditampilkan
+    const count = listUser.length;
+
+    const halamanSebelumnya = halaman > 1; // variabel ini digunaknan untuk mengecek apakah ada halaman sebelumnya atau tidak
+    const halamanSelanjutnya = halaman < totalHalaman; //variabel ini digunaknan untuk mengecek apakah ada halaman selanjutnya atau tidak
+
+    return response.status(200).json({
+      page_number: halaman,
+      page_size: batasanPerHalaman,
+      count: count,
+      total_pages: totalHalaman,
+      has_previous_page: halamanSebelumnya,
+      has_next_page: halamanSelanjutnya,
+      data: listUser,
+    });
   } catch (error) {
     return next(error);
   }
