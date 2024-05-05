@@ -124,6 +124,11 @@ const errorTypes = {
     status: 409,
     code: 'EMAIL_ALREADY_TAKEN_ERROR',
   },
+  PRODUCT_ALREADY_ADD: {
+    description: 'This product already in database',
+    status: 409,
+    code: 'PRODUCT_ALREADY_IN_DATABASE_ERROR',
+  },
   SEND_EMAIL: {
     description: 'Send email error',
     status: 500,
