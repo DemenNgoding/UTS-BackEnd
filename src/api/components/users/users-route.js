@@ -23,6 +23,7 @@ module.exports = (app) => {
 
   // Get user detail
   route.get('/:id', authenticationMiddleware, usersControllers.getUser);
+  // route.get('/:id', usersControllers.getUser);
 
   // Update user
   route.put(
